@@ -1,5 +1,5 @@
 # Milestones
-Fetch info and details about milestones of Github repos and their issues in order ot update gist.
+Fetch info and details about milestones of Github repos and their issues in order to put the info into a gist.
 
 1. `pip install -r requirements.txt`
 2. Generate Github API token and put into `TOKEN`. Make sure it can edit gists.
