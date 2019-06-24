@@ -14,6 +14,7 @@ REPOS = [
     'gnosis/safe-ios',
     'gnosis/safe-browser-extension',
     'gnosis/safe-relay-service',
+    'gnosis/safe-contracts'
 ]
 
 def main():
@@ -36,7 +37,7 @@ def main():
             
             # Milestones don't have .html_url, so creating it manually:
             milestone_html_url = '{}/milestone/{}'.format(repo.html_url, milestone.number)
-
+            
             # Print milestone header including progress and due date.
             output += '### [{}]({}) {}/{} issues ({:.0f}%) - Due on {}\n\n'.format(
                 milestone.title, 
@@ -44,7 +45,7 @@ def main():
                 milestone.closed_issues,
                 milestone.open_issues + milestone.closed_issues,
                 100 * milestone.closed_issues / (milestone.open_issues + milestone.closed_issues),
-                milestone.due_on.date())
+                milestone.due_on.date() if milestone.due_on else '???')
             
             # Go through all issues. First the closed ones, then the open ones
             output += process_issues(repo, milestone, 'closed')
