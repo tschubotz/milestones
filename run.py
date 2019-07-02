@@ -1,29 +1,44 @@
 from github import Github
+from github.GithubObject import NotSet
 from github.InputFileContent import InputFileContent
-from datetime import datetime
+from datetime import datetime, timedelta
 import urllib
+import requests
 
-TOKEN = ''
+GITHUB_TOKEN = ''
 GIST_ID = ''
 GIST_DESCRIPTION = ''
 GIST_FILENAME = ''
 
-REPOS = [
+ZENHUB_TOKEN = ''
+ZENHUB_WORKSPACE_ID = ''
+ZENHUB_OPEN_PIPELINE_IDS = [
+    '',  # Dev Backlog
+]
+
+REPOS_M = [
+    # Repositories that should be checked for open milestones.
     'gnosis/safe-react',
     'gnosis/safe-android',
     'gnosis/safe-ios',
     'gnosis/safe-browser-extension',
-    'gnosis/safe-relay-service',
     'gnosis/safe-contracts'
 ]
 
+REPOS_P = [
+    # Repositories that don't use milestones, but instead Zenhub pipelines to get an overview.
+    'gnosis/safe-relay-service',
+    'gnosis/safe-notification-service',
+    'gnosis/safe-transaction-service'
+]
+
 def main():
-    g = Github(TOKEN)
+    g = Github(GITHUB_TOKEN)
 
-    output = '_Last updated: {}_\n\n'.format(datetime.now())
+    output = '_Last updated on {}_\n\n'.format(datetime.now())
 
-    # Go through the given repositories
-    for repo_name in REPOS:
+    # Go through the given repositories that use milestones
+    for repo_name in REPOS_M:
         repo = g.get_repo(repo_name)
         
         # Print repo header
@@ -48,12 +63,35 @@ def main():
                 milestone.due_on.date() if milestone.due_on else '???')
             
             # Go through all issues. First the closed ones, then the open ones
-            output += process_issues(repo, milestone, 'closed')
-            output += process_issues(repo, milestone, 'open')
+            output += process_issues(repo, 'closed', milestone=milestone)
+            output += process_issues(repo, 'open', milestone=milestone)
         
         if open_milestones.totalCount == 0:
-            output += 'Currently no milestones opens.\n\n'
+            output += 'No milestones open.\n\n'
 
+    # Go through the given repositories that don't use milestones. 
+    for repo_name in REPOS_P:
+        repo = g.get_repo(repo_name)
+        
+        # Print repo header
+        output += '# [{}]({})\n\n'.format(repo.name, repo.html_url)
+
+        # Get closed issues that were closed within the last week.
+        last_week = datetime.today() - timedelta(days=7)
+        output_closed_issues = process_issues(repo, 'closed', since=last_week)
+        
+        # Now get all open issues.
+        output_open_issues = process_issues(repo, 'open')
+        
+        # Check if there was actually something to be printed.
+        if (len(output_closed_issues) + len(output_open_issues)) > 0:
+            # Print info
+            output += '_Not based on milestones._\n_✅ -> Closed within the last 7 days._\n_🏗 -> In columns `Dev Backlog/In Progress/Review/QA` or `Done`_\n\n'
+            output += output_closed_issues
+            output += output_open_issues
+        else:
+            output += 'No issues to show.\n\n'
+    
     # Write gist.        
     gist = g.get_gist(GIST_ID)
 
@@ -65,19 +103,34 @@ def main():
     # Print success and gist url for easy access.
     print('View output at {}'.format(gist.html_url))
 
-def process_issues(repo, milestone, state):
+def process_issues(repo, state, since=NotSet, milestone=NotSet):
     output = ''
     num_bugs = 0
 
     icon = '✅' if state == 'closed' else '🏗'
 
-    for issue in repo.get_issues(milestone=milestone, state=state):
+    for issue in repo.get_issues(milestone=milestone, state=state, since=since):
+        if repo.name in REPOS_P:
+            # If pipelines should we respected.
+            request = requests.get('https://api.zenhub.io/p1/repositories/{}/issues/{}?access_token={}'.format(
+                repo.id,
+                issue.number,
+                ZENHUB_TOKEN
+            ))
+
+            response = request.json()
+            discard = True
+            for pipeline in response.get('pipelines'):
+                if pipeline.get('workspace_id') == ZENHUB_WORKSPACE_ID and pipeline.get('pipeline_id') in ZENHUB_OPEN_PIPELINE_IDS:
+                    discard = False
+                    break
+            if discard:
+                continue
+
         # Aggregate bug tickets to not clutter the output.
         if 'bug' in [label.name for label in issue.labels]:
             num_bugs += 1
         else:
-            
-            
             # Get task info.
             closed_tasks = get_tasks(issue, 'closed')
             open_tasks = get_tasks(issue, 'open')
