@@ -154,11 +154,13 @@ def process_issues(repo, state, since=NotSet, milestone=NotSet):
 
     # Print aggregated info on bugs
     if num_bugs > 0:
-        bugs_url = '{}/issues?q=is%3Aissue+is%3A{}+label%3Abug+milestone%3A%22{}%22'.format(
+        bugs_url = '{}/issues?q=is%3Aissue+is%3A{}+label%3Abug'.format(
             repo.html_url,
-            state,
-            urllib.parse.quote_plus(milestone.title)
+            state
         )
+        if milestone != NotSet:
+            bugs_url += '+milestone%3A%22{}%22'.format(urllib.parse.quote_plus(milestone.title))
+            
         output += '- {} [{} {}]({})\n'.format(
             icon, 
             num_bugs, 
