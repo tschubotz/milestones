@@ -9,11 +9,17 @@ GITHUB_TOKEN = ''
 GIST_ID = ''
 GIST_DESCRIPTION = ''
 GIST_FILENAME = ''
+GIST_ID = '0862e975ef2d8e180c416422d85dd031'
+GIST_DESCRIPTION = 'Gnosis Safe milestones overview'
+GIST_FILENAME = 'safe_milestones.md'
 
 ZENHUB_TOKEN = ''
-ZENHUB_WORKSPACE_ID = ''
+ZENHUB_WORKSPACE_ID = '5c1b98250e13551e8aae81eb'
 ZENHUB_OPEN_PIPELINE_IDS = [
-    '',  # Dev Backlog
+    '5c360b257727940fef836846',  # Dev Backlog
+    '5c1b98250e13551e8aae81e8',  # Dev In Progress
+    '5c1b98250e13551e8aae81e9',  # Dev Review/QA 
+    '5c1b98250e13551e8aae81ea'  # Done
 ]
 
 REPOS_M = [
@@ -110,7 +116,7 @@ def process_issues(repo, state, since=NotSet, milestone=NotSet):
     icon = '✅' if state == 'closed' else '🏗'
 
     for issue in repo.get_issues(milestone=milestone, state=state, since=since):
-        if repo.name in REPOS_P:
+        if repo.full_name in REPOS_P:
             # If pipelines should we respected.
             request = requests.get('https://api.zenhub.io/p1/repositories/{}/issues/{}?access_token={}'.format(
                 repo.id,
@@ -122,10 +128,12 @@ def process_issues(repo, state, since=NotSet, milestone=NotSet):
             discard = True
             for pipeline in response.get('pipelines'):
                 if pipeline.get('workspace_id') == ZENHUB_WORKSPACE_ID and pipeline.get('pipeline_id') in ZENHUB_OPEN_PIPELINE_IDS:
+                if (pipeline.get('workspace_id') == ZENHUB_WORKSPACE_ID) and (pipeline.get('pipeline_id') in ZENHUB_OPEN_PIPELINE_IDS):
                     discard = False
                     break
             if discard:
                 continue
+        
 
         # Aggregate bug tickets to not clutter the output.
         if 'bug' in [label.name for label in issue.labels]:
@@ -160,7 +168,7 @@ def process_issues(repo, state, since=NotSet, milestone=NotSet):
         )
         if milestone != NotSet:
             bugs_url += '+milestone%3A%22{}%22'.format(urllib.parse.quote_plus(milestone.title))
-            
+
         output += '- {} [{} {}]({})\n'.format(
             icon, 
             num_bugs, 
