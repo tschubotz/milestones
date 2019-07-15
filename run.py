@@ -126,8 +126,14 @@ def process_issues(repo, state, since=NotSet, milestone=NotSet):
 
             response = request.json()
             discard = True
+            
+            if repo.full_name == 'gnosis/safe-relay-service' and issue.number == 100:  # That's the how to issue
+                continue
+
+            if not response.get('pipelines') or issue.pull_request:  # Issues without pipeline and PRs should be ignored.
+                continue
+                
             for pipeline in response.get('pipelines'):
-                if pipeline.get('workspace_id') == ZENHUB_WORKSPACE_ID and pipeline.get('pipeline_id') in ZENHUB_OPEN_PIPELINE_IDS:
                 if (pipeline.get('workspace_id') == ZENHUB_WORKSPACE_ID) and (pipeline.get('pipeline_id') in ZENHUB_OPEN_PIPELINE_IDS):
                     discard = False
                     break
