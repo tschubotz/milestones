@@ -55,6 +55,9 @@ def main():
         
         # Go through all open milestones
         for milestone in open_milestones:
+            # Skip milestones without issues
+            if (milestone.open_issues + milestone.closed_issues) == 0:
+                continue
             
             # Milestones don't have .html_url, so creating it manually:
             milestone_html_url = '{}/milestone/{}'.format(repo.html_url, milestone.number)
