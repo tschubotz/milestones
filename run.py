@@ -119,7 +119,7 @@ def process_issues(repo, state, since=NotSet, milestone=NotSet):
     icon = '✅' if state == 'closed' else '🏗'
 
     for issue in repo.get_issues(milestone=milestone, state=state, since=since):
-        if repo.full_name in REPOS_P:
+        if state == 'open' and repo.full_name in REPOS_P:  # For open issue we are checking their pipeline status.
             # If pipelines should we respected.
             request = requests.get('https://api.zenhub.io/p1/repositories/{}/issues/{}?access_token={}'.format(
                 repo.id,
@@ -133,7 +133,7 @@ def process_issues(repo, state, since=NotSet, milestone=NotSet):
             if repo.full_name == 'gnosis/safe-relay-service' and issue.number == 100:  # That's the how to issue
                 continue
 
-            if not response.get('pipelines') or issue.pull_request:  # Issues without pipeline and PRs should be ignored.
+            if not response.get('pipelines') or issue.pull_request:  # Issues without a pipeline and also PRs should be ignored.
                 continue
                 
             for pipeline in response.get('pipelines'):
