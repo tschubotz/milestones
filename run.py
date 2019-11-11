@@ -6,9 +6,6 @@ import urllib
 import requests
 
 GITHUB_TOKEN = ''
-GIST_ID = ''
-GIST_DESCRIPTION = ''
-GIST_FILENAME = ''
 GIST_ID = '0862e975ef2d8e180c416422d85dd031'
 GIST_DESCRIPTION = 'Gnosis Safe milestones overview'
 GIST_FILENAME = 'safe_milestones.md'
@@ -19,7 +16,6 @@ ZENHUB_OPEN_PIPELINE_IDS = [
     '5c360b257727940fef836846',  # Dev Backlog
     '5c1b98250e13551e8aae81e8',  # Dev In Progress
     '5c1b98250e13551e8aae81e9',  # Dev Review/QA 
-    '5c1b98250e13551e8aae81ea'  # Done
 ]
 
 REPOS_M = [
@@ -28,14 +24,14 @@ REPOS_M = [
     'gnosis/safe-android',
     'gnosis/safe-ios',
     'gnosis/safe-browser-extension',
-    'gnosis/safe-contracts'
+    'gnosis/safe-contracts',
+    'gnosis/safe-transaction-service',
 ]
 
 REPOS_P = [
     # Repositories that don't use milestones, but instead Zenhub pipelines to get an overview.
-    'gnosis/safe-relay-service',
-    'gnosis/safe-notification-service',
-    'gnosis/safe-transaction-service'
+    # 'gnosis/safe-relay-service',
+    # 'gnosis/safe-notification-service',
 ]
 
 def main():
