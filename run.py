@@ -57,6 +57,8 @@ def main():
         # Only check open milestones
         open_milestones = repo.get_milestones(state='open')
 
+        found_milestone_without_due_date = False
+
         # Go through all open milestones
         for milestone in open_milestones:
             # Skip milestones without issues
@@ -65,6 +67,12 @@ def main():
 
             # Milestones don't have .html_url, so creating it manually:
             milestone_html_url = '{}/milestone/{}'.format(repo.html_url, milestone.number)
+
+            # skip milestones without due date
+            if milestone.due_on is None:
+                print('Skipped {} (No due date set)'.format(milestone_html_url))
+                found_milestone_without_due_date = True
+                continue
 
             # Print milestone header including progress and due date.
             output += '### [{}]({}) {}/{} issues ({:.0f}%) - Due on {}\n\n'.format(
@@ -79,8 +87,8 @@ def main():
             output += process_issues(repo, 'closed', milestone=milestone)
             output += process_issues(repo, 'open', milestone=milestone)
 
-        if open_milestones.totalCount == 0:
-            output += 'No milestones open.\n\n'
+        if open_milestones.totalCount == 0 or found_milestone_without_due_date:
+            output += 'No milestones open or no milestone with due date set.\n\n'
 
     # Go through the given repositories that don't use milestones.
     for repo_name, name, label_name in REPOS_P:
@@ -100,7 +108,7 @@ def main():
         # Check if there was actually something to be printed.
         if (len(output_closed_issues) + len(output_open_issues)) > 0:
             # Print info
-            output += '_Not based on milestones._\n_✅ -> Closed within the last 7 days._\n_🏗 -> In columns `Dev Backlog/In Progress/Review/QA` or `Done`_\n\n'
+            output += '_Not based on milestones._\n_✅ -> Closed within the last 7 days._\n\n\n'
             output += output_closed_issues
             output += output_open_issues
         else:
