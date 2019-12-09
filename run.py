@@ -13,9 +13,14 @@ GIST_FILENAME = 'safe_milestones.md'
 ZENHUB_TOKEN = ''
 ZENHUB_WORKSPACE_ID = '5c1b98250e13551e8aae81eb'
 ZENHUB_OPEN_PIPELINE_IDS = [
-    '5c360b257727940fef836846',  # Dev Backlog
-    '5c1b98250e13551e8aae81e8',  # Dev In Progress
-    '5c1b98250e13551e8aae81e9',  # Dev Review/QA 
+    # '5c360b257727940fef836846',  # Dev Backlog
+    # '5c1b98250e13551e8aae81e8',  # Dev In Progress
+    # '5c1b98250e13551e8aae81e9',  # Dev Review/QA
+    '5c405ddd81fb545d1bd59066',  # design backlog
+    '5c404a9081fb545d1bd58f28',  # design in progress
+    '5c6548ceabab972b7d9504ae',  # UX test in progress
+    '5c404aa781fb545d1bd58f2b',  # Design to review
+    '5ca5dbddea9246489d44bc57',  # Design done
 ]
 
 REPOS_M = [
@@ -26,12 +31,15 @@ REPOS_M = [
     'gnosis/safe-browser-extension',
     'gnosis/safe-contracts',
     'gnosis/safe-transaction-service',
+    'gnosis/safe-relay-service',
+
 ]
 
 REPOS_P = [
     # Repositories that don't use milestones, but instead Zenhub pipelines to get an overview.
     # 'gnosis/safe-relay-service',
     # 'gnosis/safe-notification-service',
+    ('gnosis/safe', 'UX/UI', 'Design'),
 ]
 
 def main():
@@ -42,52 +50,53 @@ def main():
     # Go through the given repositories that use milestones
     for repo_name in REPOS_M:
         repo = g.get_repo(repo_name)
-        
+
         # Print repo header
         output += '# [{}]({})\n\n'.format(repo.name, repo.html_url)
 
         # Only check open milestones
         open_milestones = repo.get_milestones(state='open')
-        
+
         # Go through all open milestones
         for milestone in open_milestones:
             # Skip milestones without issues
             if (milestone.open_issues + milestone.closed_issues) == 0:
                 continue
-            
+
             # Milestones don't have .html_url, so creating it manually:
             milestone_html_url = '{}/milestone/{}'.format(repo.html_url, milestone.number)
-            
+
             # Print milestone header including progress and due date.
             output += '### [{}]({}) {}/{} issues ({:.0f}%) - Due on {}\n\n'.format(
-                milestone.title, 
+                milestone.title,
                 milestone_html_url,
                 milestone.closed_issues,
                 milestone.open_issues + milestone.closed_issues,
                 100 * milestone.closed_issues / (milestone.open_issues + milestone.closed_issues),
                 milestone.due_on.date() if milestone.due_on else '???')
-            
+
             # Go through all issues. First the closed ones, then the open ones
             output += process_issues(repo, 'closed', milestone=milestone)
             output += process_issues(repo, 'open', milestone=milestone)
-        
+
         if open_milestones.totalCount == 0:
             output += 'No milestones open.\n\n'
 
-    # Go through the given repositories that don't use milestones. 
-    for repo_name in REPOS_P:
+    # Go through the given repositories that don't use milestones.
+    for repo_name, name, label_name in REPOS_P:
         repo = g.get_repo(repo_name)
-        
+
         # Print repo header
-        output += '# [{}]({})\n\n'.format(repo.name, repo.html_url)
+        output_name = repo.name if name is None else name
+        output += '# [{}]({})\n\n'.format(output_name, repo.html_url)
 
         # Get closed issues that were closed within the last week.
         last_week = datetime.today() - timedelta(days=7)
-        output_closed_issues = process_issues(repo, 'closed', since=last_week)
-        
+        output_closed_issues = process_issues(repo, 'closed', since=last_week, label_names=[label_name])
+
         # Now get all open issues.
-        output_open_issues = process_issues(repo, 'open')
-        
+        output_open_issues = process_issues(repo, 'open', label_names=[label_name])
+
         # Check if there was actually something to be printed.
         if (len(output_closed_issues) + len(output_open_issues)) > 0:
             # Print info
@@ -96,8 +105,8 @@ def main():
             output += output_open_issues
         else:
             output += 'No issues to show.\n\n'
-    
-    # Write gist.        
+
+    # Write gist.
     gist = g.get_gist(GIST_ID)
 
     gist.edit(
@@ -108,13 +117,19 @@ def main():
     # Print success and gist url for easy access.
     print('View output at {}'.format(gist.html_url))
 
-def process_issues(repo, state, since=NotSet, milestone=NotSet):
+def process_issues(repo, state, since=NotSet, milestone=NotSet, label_names=NotSet):
     output = ''
     num_bugs = 0
 
     icon = '✅' if state == 'closed' else '🏗'
 
-    for issue in repo.get_issues(milestone=milestone, state=state, since=since):
+    labels = NotSet
+    if label_names != NotSet:
+        labels = []
+        for label_name in label_names:
+            labels.append(repo.get_label(label_name))
+
+    for issue in repo.get_issues(milestone=milestone, state=state, since=since, labels=labels):
         if state == 'open' and repo.full_name in REPOS_P:  # For open issue we are checking their pipeline status.
             # If pipelines should we respected.
             request = requests.get('https://api.zenhub.io/p1/repositories/{}/issues/{}?access_token={}'.format(
@@ -125,20 +140,20 @@ def process_issues(repo, state, since=NotSet, milestone=NotSet):
 
             response = request.json()
             discard = True
-            
+
             if repo.full_name == 'gnosis/safe-relay-service' and issue.number == 100:  # That's the how to issue
                 continue
 
             if not response.get('pipelines') or issue.pull_request:  # Issues without a pipeline and also PRs should be ignored.
                 continue
-                
+
             for pipeline in response.get('pipelines'):
                 if (pipeline.get('workspace_id') == ZENHUB_WORKSPACE_ID) and (pipeline.get('pipeline_id') in ZENHUB_OPEN_PIPELINE_IDS):
                     discard = False
                     break
             if discard:
                 continue
-        
+
 
         # Aggregate bug tickets to not clutter the output.
         if 'bug' in [label.name for label in issue.labels]:
@@ -175,8 +190,8 @@ def process_issues(repo, state, since=NotSet, milestone=NotSet):
             bugs_url += '+milestone%3A%22{}%22'.format(urllib.parse.quote_plus(milestone.title))
 
         output += '- {} [{} {}]({})\n'.format(
-            icon, 
-            num_bugs, 
+            icon,
+            num_bugs,
             'bug' if num_bugs == 1 else 'bugs',
             bugs_url)
     return output
